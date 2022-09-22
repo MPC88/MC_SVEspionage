@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace MC_SVTargetScanner
+namespace MC_SVEspionage
 {
     public class MCTargetScanner
     {

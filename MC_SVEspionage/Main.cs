@@ -7,7 +7,7 @@ using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 
-namespace MC_SVTargetScanner
+namespace MC_SVEspionage
 {
     [BepInPlugin(pluginGuid, pluginName, pluginVersion)]
     public class Main : BaseUnityPlugin
@@ -17,36 +17,17 @@ namespace MC_SVTargetScanner
         public const string pluginName = "SV Target Scanner";
         public const string pluginVersion = "0.0.2";
 
-        // SV const
-        internal const int langEffectTextSection = 4;
-
-        // Uninstaller
-        internal const string savePathStr = "/MCSVSaveData/";  // /SaveData/savePathStr/
-        internal const string saveDataPrefix = "Intel"; // saveDataPrefix_nn.dat
-        internal const string backupPathStr = "UninstBkups/"; //  /SaveData/savePathStr/backupPathStr/
-        internal const string tempFilePathStr = "UninstTmp/Temp.dat"; // /SaveData/savePathStr/tempFilePathStr/
+        // Mod
+        private const string modSaveFolder = "/MCSVSaveData/";  // /SaveData/ sub folder
+        private const string modSaveFilePrefix = "Espionage_"; // modSaveFilePrefixNN.dat
         internal static ConfigEntry<string> cfgStatus;
         internal static ConfigEntry<string> cfgSaveFile;
         private static ConfigEntry<bool> cfgRemove;
-
-        // Mod
-        internal static ConfigEntry<int> cfgEquipID;
-        internal static ConfigEntry<int> cfgItemID;
         internal static PersistentData data;
         internal static bool patchedText = false;
 
         public void Awake()
         {
-            // Target Scanner Config
-            cfgEquipID = Config.Bind("Memory",
-                "EquipmentID",
-                -1,
-                "Do not manually edit this value after first run unless you: A. Haven't saved a game or B. Have run the uninstaller on any save game.");
-            cfgItemID = Config.Bind("Memory",
-                "IntelItemID",
-                -1,
-                "Do not manually edit this value after first run unless you: A. Haven't saved a game or B. Have run the uninstaller on any save game.");
-
             UninstallerAwake();
             Harmony.CreateAndPatchAll(typeof(Main));
         }
@@ -60,7 +41,7 @@ namespace MC_SVTargetScanner
             cfgStatus.Value = "Idle";
             cfgSaveFile = Config.Bind(new ConfigDefinition("Uninstall", "2 Save Game"),
                 "",
-                new ConfigDescription("Save game to edit.", new AcceptableValueList<string>(Uninstaller.GetSavesList()), null)
+                new ConfigDescription("Save game to edit.", new AcceptableValueList<string>(SVUtil.GetSavesList()), null)
                 );
             cfgRemove = Config.Bind("Uninstall",
                 "3 Uninstall",
@@ -72,18 +53,36 @@ namespace MC_SVTargetScanner
         public void Update()
         {
             // Uninstaller
-            if ((cfgRemove.Value) && !Uninstaller.running)
+            if ((cfgRemove.Value) && !SVUtil.opRunning)
             {
                 if (GameManager.instance != null && GameManager.instance.inGame)
                     cfgStatus.Value = "Please run uninstall from Main Menu";
                 else
                 {
-                    Uninstaller.RemoveReplaceEquipment(true,
-                        cfgEquipID.Value,
-                        0,
-                        Application.dataPath + GameData.saveFolderName + "/" + cfgSaveFile.GetSerializedValue());
-                    Uninstaller.running = false;
-                }                
+                    GameDataInfo gdi = null;
+                    string selectedSaveIndex = cfgSaveFile.GetSerializedValue();
+                    selectedSaveIndex = selectedSaveIndex.Remove(selectedSaveIndex.IndexOf('.')).Remove(0, selectedSaveIndex.IndexOf('_') + 1);
+                    string saveFilePath = Application.dataPath + GameData.saveFolderName + "/" + cfgSaveFile.GetSerializedValue();
+                    try
+                    {
+                        LoadData(selectedSaveIndex);
+                        gdi = SVEquipmentUtil.RemoveEquipment(SVUtil.LoadGame(saveFilePath), data.scannerEquipID);
+                    }
+                    catch
+                    {
+                        cfgStatus.Value = "Loading or uninstall operation failed.  No files have been modifed.";
+                    }
+
+                    try
+                    {
+                        if (gdi != null)
+                            SVUtil.SaveGame(gdi, saveFilePath, modSaveFolder);
+                    }
+                    catch
+                    {
+                        cfgStatus.Value = "Saving failed.  Backup: " + SVUtil.lastBackupPath;
+                    }
+                }                                
                 cfgRemove.Value = false;
             }
         }
@@ -93,7 +92,7 @@ namespace MC_SVTargetScanner
             if (data == null)
                 return;
 
-            string tempPath = Application.dataPath + GameData.saveFolderName + Main.savePathStr + Main.tempFilePathStr;
+            string tempPath = Application.dataPath + GameData.saveFolderName + modSaveFolder + "EspTemp.dat";
 
             if (!Directory.Exists(Path.GetDirectoryName(tempPath)))
                 Directory.CreateDirectory(Path.GetDirectoryName(tempPath));
@@ -107,12 +106,12 @@ namespace MC_SVTargetScanner
             binaryFormatter.Serialize(fileStream, data);
             fileStream.Close();
 
-            File.Copy(tempPath, Application.dataPath + GameData.saveFolderName + Main.savePathStr + Main.saveDataPrefix + GameData.gameFileIndex.ToString("00") + ".dat", true);
+            File.Copy(tempPath, Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat", true);
         }
 
-        private static void LoadGame()
+        private static void LoadData(string saveIndex)
         {
-            string associatedData = Application.dataPath + GameData.saveFolderName + Main.savePathStr + Main.saveDataPrefix + GameData.gameFileIndex.ToString("00") + ".dat";
+            string associatedData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
             if (File.Exists(associatedData))
             {
                 BinaryFormatter binaryFormatter = new BinaryFormatter();
@@ -129,6 +128,13 @@ namespace MC_SVTargetScanner
                 Main.data = new PersistentData();
         }
 
+        private static void DeleteData(string saveIndex)
+        {
+            string associatedData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
+            if (File.Exists(associatedData))
+                File.Delete(associatedData);
+        }
+
         [HarmonyPatch(typeof(EquipmentDB), "LoadDatabase")]
         [HarmonyPostfix]
         private static void EquipmentDB_LoadDatabase_Post(ref List<Equipment> ___equipments)
@@ -140,7 +146,7 @@ namespace MC_SVTargetScanner
         [HarmonyPrefix]
         private static void ActivateDeactivate_Pre(ActiveEquipment __instance)
         {
-            if (__instance.equipment.id == cfgEquipID.Value)
+            if (__instance.equipment.id == data.scannerEquipID)
                 __instance = MCTargetScanner.ActivateDeactivate_Pre(__instance);
         }
 
@@ -148,7 +154,7 @@ namespace MC_SVTargetScanner
         [HarmonyPrefix]
         private static bool ActiveEquipmentAdd_Pre(Equipment equipment, SpaceShip ss, KeyCode key, int rarity, int qnt, ref ActiveEquipment __result)
         {
-            if (equipment.id == cfgEquipID.Value)
+            if (equipment.id == data.scannerEquipID)
             {
                 __result = MCTargetScanner.ActiveEquipmentAdd_Pre(equipment, ss, key, rarity, qnt);
                 return false;
@@ -186,7 +192,9 @@ namespace MC_SVTargetScanner
         [HarmonyPostfix]
         private static void GameDataLoadGame_Post()
         {
-            LoadGame();
+            LoadData(GameData.gameFileIndex.ToString("00"));
+
+
         }
     }
 
@@ -198,6 +206,7 @@ namespace MC_SVTargetScanner
 
         internal PersistentData()
         {
+            scannerEquipID = -1;
             intelInCargo = new List<Item>();
         }
     }

@@ -65,9 +65,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SVUtil.cs" />
     <Compile Include="MCIntel.cs" />
     <Compile Include="MCTargetScanner.cs" />
-    <Compile Include="Uninstaller.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
