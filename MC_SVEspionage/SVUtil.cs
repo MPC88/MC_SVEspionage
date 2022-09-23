@@ -12,8 +12,6 @@ namespace MC_SVEspionage
         // SV constants
         internal enum LangTextSection { zero, one, two, three, effecttext }
         internal enum GlobalItemType { none, weapon, equipment, genericitem, ship }
-        internal enum Scene { intro, normal, arena }
-        internal readonly static string[] sceneNames = { "Intro", "Scene_1", "Arena" };
 
         // Mod constants
         private const string backupFolder = "Backups/";

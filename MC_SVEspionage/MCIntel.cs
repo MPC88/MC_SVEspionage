@@ -8,7 +8,7 @@ namespace MC_SVEspionage
 		internal const int maxIntels = 5;		
 		private const string itemName = "Station Intel";
 		private const string stationNamePlaceholder = "<STATIONNAME>";
-		private const string description = "A collection of various trade records and security protocols.\n " + stationNamePlaceholder;
+		private const string description = "A collection of economic records and security protocols.\n " + stationNamePlaceholder;
 		private const int bpItemID = 54; // for gameobj + sprite		
 
 		internal static int startID = -1;

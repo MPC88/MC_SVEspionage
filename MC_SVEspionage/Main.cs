@@ -119,7 +119,7 @@ namespace MC_SVEspionage
             string modData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
             try
             {
-                if (File.Exists(modData))
+                if (!saveIndex.IsNullOrWhiteSpace() && File.Exists(modData))
                 {
                     BinaryFormatter binaryFormatter = new BinaryFormatter();
                     FileStream fileStream = File.Open(modData, FileMode.Open);
@@ -133,10 +133,16 @@ namespace MC_SVEspionage
                 }
                 else
                     data = new PersistentData();
+
+                List<Equipment> equipments = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
+                equipments = MCTargetScanner.Load(equipments);
+
+                List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
+                items = MCIntel.Load(items);
             }
             catch
             {
-                data = null;
+                SideInfo.AddMsg("<color=red>Espionage mod load failed.</color>");
             }
         }
 
@@ -177,32 +183,33 @@ namespace MC_SVEspionage
             SaveGame();
         }
 
-        [HarmonyPatch(typeof(SceneManager), nameof(SceneManager.LoadScene), new Type[] { typeof(string) })]
+        [HarmonyPatch(typeof(MenuControl), nameof(MenuControl.LoadGame))]
         [HarmonyPostfix]
-        private static void GameDataLoadScene_Post(string sceneName)
+        private static void MenuControlLoadGame_Post()
         {
-            if (sceneName.Equals(SVUtil.sceneNames[(int)SVUtil.Scene.normal]))
-            {
-                LoadData(GameData.gameFileIndex.ToString("00"));
-                if (data == null)
-                {
-                    SideInfo.AddMsg("<color=red>Espionage mod load failed.</color>");
-                    return;
-                }
+            LoadData(GameData.gameFileIndex.ToString("00"));
+        }
 
-                List<Equipment> equipments = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
-                equipments = MCTargetScanner.Load(equipments);
+        [HarmonyPatch(typeof(MenuControl), nameof(MenuControl.NewGame))]
+        [HarmonyPostfix]
+        private static void MenuControlNewGame_Post(NewGameSetup gameSetup)
+        {
+            if (gameSetup.startQuestCode != 100) // 100 => intro scene to be loaded
+                LoadData("");
+        }
 
-                List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
-                items = MCIntel.Load(items);
-            }
+        [HarmonyPatch(typeof(IntroControl), nameof(IntroControl.StartGame))]
+        [HarmonyPostfix]
+        private static void IntroControlStartGame_Post()
+        {
+            LoadData("");
         }
 
         [HarmonyPatch(typeof(Inventory), nameof(Inventory.SelectItem))]
         [HarmonyPostfix]
-        private static void InventorySelectItem_Post(int itemIndex, ref CargoSystem ___cs, ref GameObject ___btnJettison, ref GameObject ___btnScrapItem)
+        private static void InventorySelectItem_Post(int itemIndex, ref CargoSystem ___cs, ref GameObject ___btnJettison, ref GameObject ___btnScrapItem, ref int ___cargoMode)
         {
-            if (___cs.cargo[itemIndex].itemID >= MCIntel.startID &&
+            if (___cargoMode < 2 && ___cs.cargo[itemIndex].itemID >= MCIntel.startID &&
                 ___cs.cargo[itemIndex].itemID <= MCIntel.startID + MCIntel.maxIntels - 1)
             {
                 ___btnScrapItem.SetActive(false);
@@ -214,7 +221,8 @@ namespace MC_SVEspionage
         [HarmonyPrefix]
         private static void CargoSystemRemoveItem_Pre(int index, ref List<CargoItem> ___cargo)
         {
-            if (___cargo[index].itemID >= MCIntel.startID &&
+            if (___cargo != null && index >= 0 && index < ___cargo.Count && 
+                ___cargo[index].itemID >= MCIntel.startID &&
                 ___cargo[index].itemID <= MCIntel.startID + MCIntel.maxIntels - 1)
                 MCIntel.RemoveIntel(___cargo[index].itemID);
         }
