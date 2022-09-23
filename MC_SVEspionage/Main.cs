@@ -22,7 +22,7 @@ namespace MC_SVEspionage
         private const string modSaveFilePrefix = "Espionage_"; // modSaveFilePrefixNN.dat
         internal static ConfigEntry<string> cfgStatus;
         internal static ConfigEntry<string> cfgSaveFile;
-        private static ConfigEntry<bool> cfgRemove;
+        private static ConfigEntry<bool> cfgUninstall;
         internal static PersistentData data;
         internal static bool patchedText = false;
 
@@ -36,24 +36,23 @@ namespace MC_SVEspionage
         {
             cfgStatus = Config.Bind("Uninstall",
                 "1. Status",
-                "Idle",
+                "",
                 "Current status of tool.  No input required.");
             cfgStatus.Value = "Idle";
             cfgSaveFile = Config.Bind(new ConfigDefinition("Uninstall", "2 Save Game"),
                 "",
-                new ConfigDescription("Save game to edit.", new AcceptableValueList<string>(SVUtil.GetSavesList()), null)
-                );
-            cfgRemove = Config.Bind("Uninstall",
+                new ConfigDescription("Save game to edit.", new AcceptableValueList<string>(SVUtil.GetSavesList()), null));
+            cfgUninstall = Config.Bind("Uninstall",
                 "3 Uninstall",
                 false,
                 "Check this box to start remove process.");
-            cfgRemove.Value = false;
+            cfgUninstall.Value = false;
         }
 
         public void Update()
         {
             // Uninstaller
-            if ((cfgRemove.Value) && !SVUtil.opRunning)
+            if ((cfgUninstall.Value) && !SVUtil.opRunning)
             {
                 if (GameManager.instance != null && GameManager.instance.inGame)
                     cfgStatus.Value = "Please run uninstall from Main Menu";
@@ -82,8 +81,10 @@ namespace MC_SVEspionage
                     {
                         cfgStatus.Value = "Saving failed.  Backup: " + SVUtil.lastBackupPath;
                     }
+
+                    cfgStatus.Value = "Complete.  Save backup: " + SVUtil.lastBackupPath;
                 }                                
-                cfgRemove.Value = false;
+                cfgUninstall.Value = false;
             }
         }
 
@@ -112,20 +113,27 @@ namespace MC_SVEspionage
         private static void LoadData(string saveIndex)
         {
             string associatedData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
-            if (File.Exists(associatedData))
+            try
             {
-                BinaryFormatter binaryFormatter = new BinaryFormatter();
-                FileStream fileStream = File.Open(associatedData, FileMode.Open);
-                PersistentData loadData = (PersistentData)binaryFormatter.Deserialize(fileStream);
-                fileStream.Close();
+                if (File.Exists(associatedData))
+                {
+                    BinaryFormatter binaryFormatter = new BinaryFormatter();
+                    FileStream fileStream = File.Open(associatedData, FileMode.Open);
+                    PersistentData loadData = (PersistentData)binaryFormatter.Deserialize(fileStream);
+                    fileStream.Close();
 
-                if (loadData == null)
-                    data = new PersistentData();
+                    if (loadData == null)
+                        data = new PersistentData();
+                    else
+                        data = loadData;
+                }
                 else
-                    data = loadData;
+                    data = new PersistentData();
             }
-            else
-                Main.data = new PersistentData();
+            catch
+            {
+                data = null;
+            }
         }
 
         private static void DeleteData(string saveIndex)
@@ -133,13 +141,6 @@ namespace MC_SVEspionage
             string associatedData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
             if (File.Exists(associatedData))
                 File.Delete(associatedData);
-        }
-
-        [HarmonyPatch(typeof(EquipmentDB), "LoadDatabase")]
-        [HarmonyPostfix]
-        private static void EquipmentDB_LoadDatabase_Post(ref List<Equipment> ___equipments)
-        {
-            ___equipments = MCTargetScanner.EquipmentDBLoadDatabase_Post(___equipments);
         }
 
         [HarmonyPatch(typeof(ActiveEquipment), "ActivateDeactivate")]
@@ -163,24 +164,6 @@ namespace MC_SVEspionage
             return true;
         }
 
-        [HarmonyPatch(typeof(Lang), nameof(Lang.Get), new System.Type[] { typeof(int), typeof(int) })]
-        [HarmonyPrefix]
-        private static void Lang_Get_Pre()
-        {
-            if (!patchedText)
-            {
-                MCTargetScanner.AddToEffectsTextSection();
-                Main.patchedText = true;
-            }
-        }
-
-        [HarmonyPatch(typeof(Lang), "LoadFile")]
-        [HarmonyPostfix]
-        private static void Lang_LoadFile_Post()
-        {
-            MCTargetScanner.AddToEffectsTextSection();
-        }
-
         [HarmonyPatch(typeof(GameData), nameof(GameData.SaveGame))]
         [HarmonyPrefix]
         private static void GameDataSaveGame_Pre()
@@ -193,8 +176,14 @@ namespace MC_SVEspionage
         private static void GameDataLoadGame_Post()
         {
             LoadData(GameData.gameFileIndex.ToString("00"));
+            if (data == null)
+            {
+                SideInfo.AddMsg("<color=red>Espionage mod load failed.</color>");
+                return;
+            }
 
-
+            List<Equipment> equipments = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
+            equipments = MCTargetScanner.Load(equipments);
         }
     }
 

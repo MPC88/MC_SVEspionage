@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -76,6 +77,7 @@ namespace MC_SVEspionage
 
             opRunning = true;
 
+            lastBackupPath = "None.  No files have been modifed.";
             if (File.Exists(saveFilePath))
                 lastBackupPath = CreateBackup(saveFilePath, modSaveFolder);
 
@@ -123,6 +125,42 @@ namespace MC_SVEspionage
     internal class SVEquipmentUtil
     {
         internal static bool remRepOpFoundEquipment;
+
+        internal static int GetNextID(List<Equipment> equipments)
+        {
+            int id = -1;
+            if (equipments == null || equipments.Count == 0)
+                return id;
+
+            foreach (Equipment equipment in equipments)
+                if (equipment.id > id)
+                    id = equipment.id;
+            id++;
+
+            return id;
+        }
+
+        internal static int AddToEffectsTextSection(string effectText)
+        {
+            LanguageTextStruct[] lang = AccessTools.StaticFieldRefAccess<Lang, LanguageTextStruct[]>("section");
+            lang[(int)SVUtil.LangTextSection.EffectText].text.Add(effectText);
+            return lang[(int)SVUtil.LangTextSection.EffectText].text.Count - 1;
+        }
+
+        internal static GameDataInfo AddToRandomStations(GameDataInfo gameDataInfo, Equipment equipment)
+        {            
+            foreach (Station s in gameDataInfo.stationList)
+            {
+                if (s.level >= equipment.itemLevel &&
+                    UnityEngine.Random.Range(1, 100) <= equipment.sellChance)
+                {
+                    MarketItem mi = new MarketItem((int)SVUtil.GlobalItemType.equipment, equipment.id, (int)ItemRarity.Common_1, UnityEngine.Random.Range(1, 5), null);
+                    s.market.Add(mi);
+                }
+            }
+
+            return gameDataInfo;
+        }
 
         internal static GameDataInfo RemoveEquipment(GameDataInfo gameDataInfo, int equipmentID)
         {

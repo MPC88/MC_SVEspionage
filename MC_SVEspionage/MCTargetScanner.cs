@@ -6,62 +6,36 @@ namespace MC_SVEspionage
 {
     public class MCTargetScanner
     {
-        internal static int sysInfilEffectTextIndex = 0;
         private static GameObject buffGO = null;
-        private const int equipID = 1000;
         private const int basicScannerEquipID = 20; // For sprite
         private const string effectText = "<b>Systems Infiltration: <par1></color></b>"; // Only required if effect does not already exist.  For existing type IDs, check language file.                
-        private static Equipment equipment = null;
-
-        internal static List<Equipment> EquipmentDBLoadDatabase_Post(List<Equipment> equipments)
+        
+        internal static List<Equipment> Load(List<Equipment> equipments)
         {
-            if (Main.cfgEquipID.Value == -1)
-                GenerateID();
+            int id = SVEquipmentUtil.GetNextID(equipments);
+            int effectTextIndex = SVEquipmentUtil.AddToEffectsTextSection(effectText);
 
-            if (!Main.patchedText)
-                AddToEffectsTextSection();
+            if (equipments != null && id != -1)
+            {
+                Equipment targetScanner = MCTargetScanner.CreateEquipment(id, effectTextIndex);
+                equipments.Add(targetScanner);
 
-            if (equipment == null)
-                MCTargetScanner.CreateEquipment();
+                if (Main.data.scannerEquipID != id)
+                    GameData.data = SVEquipmentUtil.ReplaceEquipment(GameData.data, Main.data.scannerEquipID, id);
+                else
+                    GameData.data = SVEquipmentUtil.AddToRandomStations(GameData.data, targetScanner);
+            }
 
-            if (equipments != null)
-                equipments.Add(equipment);
+            Main.data.scannerEquipID = id;
 
             return equipments;
         }
 
-        private static void GenerateID()
-        {
-            if (Main.cfgEquipID.Value == -1)
-            {
-                List<Equipment> equipmentList = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
-                if (equipmentList == null || equipmentList.Count == 0)
-                    return;
-
-                int id = equipID;
-                while (Main.cfgEquipID.Value == -1)
-                {
-                    bool exists = false;
-                    foreach (Equipment e in equipmentList)
-                    {
-                        if (e.id == id)
-                        {
-                            exists = true;
-                            id++;
-                            break;
-                        }
-                    }
-                    if (!exists)
-                        Main.cfgEquipID.Value = id;
-                }
-            }
-        }
-
-        internal static void CreateEquipment()
+        private static Equipment CreateEquipment(int id, int effectTextIndex)
         {
             Equipment targetScanner = ScriptableObject.CreateInstance<Equipment>();
-            targetScanner.name = Main.cfgEquipID + ".TargetScanner";
-            targetScanner.id = Main.cfgEquipID.Value;
+            targetScanner.name = id + ".TargetScanner";
+            targetScanner.id = id;
             targetScanner.refName = "Target Scanner";
             targetScanner.minShipClass = ShipClassLevel.Shuttle;
             targetScanner.activated = true;
@@ -74,7 +48,7 @@ namespace MC_SVEspionage
             targetScanner.sortPower = 0;
             targetScanner.massChange = 0;
             targetScanner.type = EquipmentType.Utility;
-            targetScanner.effects = new List<Effect>() { new Effect() { type = sysInfilEffectTextIndex, description = "Range", value = 10f, mod = 1f, uniqueLevel = 2 } };
+            targetScanner.effects = new List<Effect>() { new Effect() { type = effectTextIndex, description = "Range", value = 10f, mod = 1f, uniqueLevel = 2 } };
             targetScanner.uniqueReplacement = true;
             targetScanner.rarityMod = 10f;
             targetScanner.sellChance = 100;
@@ -83,7 +57,7 @@ namespace MC_SVEspionage
             targetScanner.lootChance = 100;
             targetScanner.spawnInArena = false;
             targetScanner.sprite = EquipmentDB.GetEquipment(basicScannerEquipID).sprite;
-            targetScanner.activeEquipmentIndex = Main.cfgEquipID.Value;
+            targetScanner.activeEquipmentIndex = id;
             targetScanner.defaultKey = KeyCode.Alpha1;
             targetScanner.requiredItemID = -1;
             targetScanner.requiredQnt = 0;
@@ -94,14 +68,7 @@ namespace MC_SVEspionage
                 MakeBuffGO(targetScanner);
             targetScanner.buff = buffGO;
 
-            equipment = targetScanner;
-        }
-
-        internal static void AddToEffectsTextSection()
-        {
-            LanguageTextStruct[] lang = AccessTools.StaticFieldRefAccess<Lang, LanguageTextStruct[]>("section");
-            lang[Main.langEffectTextSection].text.Add(effectText);
-            sysInfilEffectTextIndex = lang[Main.langEffectTextSection].text.Count - 1;            
+            return targetScanner;
         }
 
         private static void MakeBuffGO(Equipment equip)
