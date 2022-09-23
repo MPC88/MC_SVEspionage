@@ -120,6 +120,115 @@ namespace MC_SVEspionage
             opRunning = false;
             return backupPath;
         }
+
+        internal static GameDataInfo RemoveReplaceFromShips(bool isRemoveOp, GameDataInfo gameInfo, int targetID, int newID, GlobalItemType type)
+        {
+            // Space ship data - player            
+            if (gameInfo.spaceShipData != null)
+                gameInfo.spaceShipData = RemoveReplaceFromShip(isRemoveOp, gameInfo.spaceShipData, targetID, newID, type);
+
+            // Stored ships
+            if (gameInfo.shipLoadouts != null && gameInfo.shipLoadouts.Count > 0)
+                for (int i = 0; i < gameInfo.shipLoadouts.Count; i++)
+                    if (gameInfo.shipLoadouts[i].data != null)
+                        gameInfo.shipLoadouts[i].data = RemoveReplaceFromShip(isRemoveOp, gameInfo.shipLoadouts[i].data, targetID, newID, type);
+
+            // Crew ships
+            if (gameInfo.crew != null && gameInfo.crew.Count > 0)
+                for (int i = 0; i < gameInfo.crew.Count; i++)
+                    if (gameInfo.crew[i].aiChar != null && gameInfo.crew[i].aiChar.shipData != null)
+                        gameInfo.crew[i].aiChar.shipData = RemoveReplaceFromShip(isRemoveOp, gameInfo.crew[i].aiChar.shipData, targetID, newID, type);
+
+            // Mercenaries
+            if (gameInfo.character != null && gameInfo.character.mercenaries != null && gameInfo.character.mercenaries.Count > 0)
+                for (int i = 0; i < gameInfo.character.mercenaries.Count; i++)
+                    if (gameInfo.character.mercenaries[i].shipData != null)
+                        gameInfo.character.mercenaries[i].shipData = RemoveReplaceFromShip(isRemoveOp, gameInfo.character.mercenaries[i].shipData, targetID, newID, type);
+
+            return gameInfo;
+        }
+
+        internal static SpaceShipData RemoveReplaceFromShip(bool isRemoveOp, SpaceShipData ssData, int targetID, int newID, GlobalItemType type)
+        {
+            if (ssData.cargo != null && ssData.cargo.Count > 0)
+                ssData.cargo = RemoveReplaceFromShipCargo(isRemoveOp, ssData.cargo, targetID, newID, type);
+            if (type == GlobalItemType.equipment && ssData.equipments != null && ssData.equipments.Count > 0)
+                ssData.equipments = SVEquipmentUtil.RemoveReplaceFromShipEquipment(isRemoveOp, ssData.equipments, targetID, newID);
+
+            return ssData;
+        }
+
+        internal static List<CargoItem> RemoveReplaceFromShipCargo(bool isRemoveOp, List<CargoItem> cargo, int targetID, int newID, GlobalItemType type)
+        {
+            if (isRemoveOp)
+                cargo.RemoveAll(ci => ci.itemType == (int)type && ci.itemID == targetID);
+            else
+                cargo.ForEach(ci => { if (ci.itemType == (int)type && ci.itemID == targetID) ci.itemID = newID; });
+
+            return cargo;
+        }
+        
+        internal static List<CargoItem> RemoveReplaceFromShipCargo(bool isRemoveOp, List<CargoItem> cargo, Dictionary<int, int> ids, GlobalItemType type)
+        {
+            if (isRemoveOp)
+                cargo.RemoveAll(ci => ci.itemType == (int)type && ids.ContainsKey(ci.itemID));
+            else
+                cargo.ForEach((Action<CargoItem>)(ci => { if (ci.itemType == (int)type && ids.ContainsKey(ci.itemID)) ci.itemID = ids[ci.itemID]; }));
+
+            return cargo;
+        }
+
+        internal static GameDataInfo RemoveReplaceFromTowedObjects(bool isRemoveOp, GameDataInfo gameInfo, int targetID, int newID, GlobalItemType type)
+        {
+            if (gameInfo.towedObjects != null && gameInfo.towedObjects.Count > 0)
+                if (isRemoveOp)
+                    gameInfo.towedObjects.RemoveAll(to => to.driftingObject.itemType == (int)type && to.driftingObject.itemID == targetID);
+                else
+                    gameInfo.towedObjects.ForEach(to => { if (to.driftingObject.itemType == (int)type && to.driftingObject.itemID == targetID) to.driftingObject.itemID = newID; });
+
+            return gameInfo;
+        }
+
+        internal static GameDataInfo RemoveReplaceFromMarkets(bool isRemoveOp, GameDataInfo gameInfo, int targetID, int newID, GlobalItemType type)
+        {
+            // Stations list
+            foreach (Station s in gameInfo.stationList)
+                if (s.market != null && s.market.Count > 0)
+                    if (isRemoveOp)
+                        s.market.RemoveAll(mi => mi.itemType == (int)type && mi.itemID == targetID);
+                    else
+                        s.market.ForEach(mi => { if (mi.itemType == (int)type && mi.itemID == targetID) mi.itemID = newID; });
+
+            // Arena market
+            if (gameInfo.arenaData != null &&
+                gameInfo.arenaData.currMarket != null &&
+                gameInfo.arenaData.currMarket.Count > 0)
+                if (isRemoveOp)
+                    gameInfo.arenaData.currMarket.RemoveAll(mi => mi.itemType == (int)type && mi.itemID == targetID);
+                else
+                    gameInfo.arenaData.currMarket.ForEach(mi => { if (mi.itemType == (int)type && mi.itemID == targetID) mi.itemID = newID; });
+
+            return gameInfo;
+        }
+
+        internal static GameDataInfo RemoveReplaceFromSectors(bool isRemoveOp, GameDataInfo gameInfo, int targetID, int newID, GlobalItemType type)
+        {
+            if (gameInfo.sectors != null && gameInfo.sectors.Count > 0)
+                foreach (TSector sec in gameInfo.sectors)
+                    if (sec.driftingObjects != null && sec.driftingObjects.Count > 0)
+                        if (isRemoveOp)
+                            sec.driftingObjects.RemoveAll(dro => dro.itemType == (int)type && dro.itemID == targetID);
+                        else
+                            sec.driftingObjects.ForEach(dro => { if (dro.itemType == (int)type && dro.itemID == targetID) dro.itemID = newID; });
+
+            if (gameInfo.lastSector != null)
+                if (isRemoveOp)
+                    gameInfo.lastSector.driftingObjects.RemoveAll(dro => dro.itemType == (int)type && dro.itemID == targetID);
+                else
+                    gameInfo.lastSector.driftingObjects.ForEach(dro => { if (dro.itemType == (int)type && dro.itemID == targetID) dro.itemID = newID; });
+
+            return gameInfo;
+        }
     }
 
     internal class SVEquipmentUtil
@@ -169,10 +278,10 @@ namespace MC_SVEspionage
 
             try
             {
-                gameDataInfo = RemoveReplaceFromShips(true, gameDataInfo, equipmentID, 0);
-                gameDataInfo = RemoveReplaceFromTowedObjects(true, gameDataInfo, equipmentID, 0);
-                gameDataInfo = RemoveReplaceFromMarkets(true, gameDataInfo, equipmentID, 0);
-                gameDataInfo = RemoveReplaceFromSectors(true, gameDataInfo, equipmentID, 0);
+                gameDataInfo = SVUtil.RemoveReplaceFromShips(true, gameDataInfo, equipmentID, 0, SVUtil.GlobalItemType.equipment);
+                gameDataInfo = SVUtil.RemoveReplaceFromTowedObjects(true, gameDataInfo, equipmentID, 0, SVUtil.GlobalItemType.equipment);
+                gameDataInfo = SVUtil.RemoveReplaceFromMarkets(true, gameDataInfo, equipmentID, 0, SVUtil.GlobalItemType.equipment);
+                gameDataInfo = SVUtil.RemoveReplaceFromSectors(true, gameDataInfo, equipmentID, 0, SVUtil.GlobalItemType.equipment);
             }
             catch
             {
@@ -191,10 +300,10 @@ namespace MC_SVEspionage
 
             try
             {
-                gameDataInfo = RemoveReplaceFromShips(false, gameDataInfo, oldID, newID);
-                gameDataInfo = RemoveReplaceFromTowedObjects(false, gameDataInfo, oldID, newID);
-                gameDataInfo = RemoveReplaceFromMarkets(false, gameDataInfo, oldID, newID);
-                gameDataInfo = RemoveReplaceFromSectors(false, gameDataInfo, oldID, newID);
+                gameDataInfo = SVUtil.RemoveReplaceFromShips(false, gameDataInfo, oldID, newID, SVUtil.GlobalItemType.equipment);
+                gameDataInfo = SVUtil.RemoveReplaceFromTowedObjects(false, gameDataInfo, oldID, newID, SVUtil.GlobalItemType.equipment);
+                gameDataInfo = SVUtil.RemoveReplaceFromMarkets(false, gameDataInfo, oldID, newID, SVUtil.GlobalItemType.equipment);
+                gameDataInfo = SVUtil.RemoveReplaceFromSectors(false, gameDataInfo, oldID, newID, SVUtil.GlobalItemType.equipment);
             }
             catch
             {
@@ -206,125 +315,42 @@ namespace MC_SVEspionage
             return gameDataInfo;
         }
 
-        private static GameDataInfo RemoveReplaceFromShips(bool isRemoveOp, GameDataInfo gameInfo, int targetIDVal, int newIDVal)
-        {
-            // Space ship data - player            
-            if (gameInfo.spaceShipData != null)
-            {
-                if (gameInfo.spaceShipData.cargo != null && gameInfo.spaceShipData.cargo.Count > 0)
-                    gameInfo.spaceShipData.cargo = RemoveReplaceFromShipCargo(isRemoveOp, gameInfo.spaceShipData.cargo, targetIDVal, newIDVal);
-                if (gameInfo.spaceShipData.equipments != null && gameInfo.spaceShipData.equipments.Count > 0)
-                    gameInfo.spaceShipData.equipments = RemoveReplaceFromShipEquipment(isRemoveOp, gameInfo.spaceShipData.equipments, targetIDVal, newIDVal);
-            }
-            else // No player = no bueno                
-                throw new Exception();
-
-            // Stored ships
-            if (gameInfo.shipLoadouts != null && gameInfo.shipLoadouts.Count > 0)
-                for (int i = 0; i < gameInfo.shipLoadouts.Count; i++)
-                    if (gameInfo.shipLoadouts[i].data != null)
-                    {
-                        if (gameInfo.shipLoadouts[i].data.cargo != null && gameInfo.shipLoadouts[i].data.cargo.Count > 0)
-                            gameInfo.shipLoadouts[i].data.cargo = RemoveReplaceFromShipCargo(isRemoveOp, gameInfo.shipLoadouts[i].data.cargo, targetIDVal, newIDVal);
-                        if (gameInfo.shipLoadouts[i].data.equipments != null && gameInfo.shipLoadouts[i].data.equipments.Count > 0)
-                            gameInfo.shipLoadouts[i].data.equipments = RemoveReplaceFromShipEquipment(isRemoveOp, gameInfo.shipLoadouts[i].data.equipments, targetIDVal, newIDVal);
-                    }
-
-            // Crew ships
-            if (gameInfo.crew != null && gameInfo.crew.Count > 0)
-                for (int i = 0; i < gameInfo.crew.Count; i++)
-                    if (gameInfo.crew[i].aiChar != null && gameInfo.crew[i].aiChar.shipData != null)
-                    {
-                        if (gameInfo.crew[i].aiChar.shipData.cargo != null && gameInfo.crew[i].aiChar.shipData.cargo.Count > 0)
-                            gameInfo.crew[i].aiChar.shipData.cargo = RemoveReplaceFromShipCargo(isRemoveOp, gameInfo.crew[i].aiChar.shipData.cargo, targetIDVal, newIDVal);
-                        if (gameInfo.crew[i].aiChar.shipData.equipments != null && gameInfo.crew[i].aiChar.shipData.equipments.Count > 0)
-                            gameInfo.crew[i].aiChar.shipData.equipments = RemoveReplaceFromShipEquipment(isRemoveOp, gameInfo.crew[i].aiChar.shipData.equipments, targetIDVal, newIDVal);
-                    }
-
-            // Mercenaries
-            if (gameInfo.character != null && gameInfo.character.mercenaries != null && gameInfo.character.mercenaries.Count > 0)
-                for (int i = 0; i < gameInfo.character.mercenaries.Count; i++)
-                    if (gameInfo.character.mercenaries[i].shipData != null)
-                    {
-                        if (gameInfo.character.mercenaries[i].shipData.cargo != null && gameInfo.character.mercenaries[i].shipData.cargo.Count > 0)
-                            gameInfo.character.mercenaries[i].shipData.cargo = RemoveReplaceFromShipCargo(isRemoveOp, gameInfo.character.mercenaries[i].shipData.cargo, targetIDVal, newIDVal);
-                        if (gameInfo.character.mercenaries[i].shipData.equipments != null && gameInfo.character.mercenaries[i].shipData.equipments.Count > 0)
-                            gameInfo.character.mercenaries[i].shipData.equipments = RemoveReplaceFromShipEquipment(isRemoveOp, gameInfo.character.mercenaries[i].shipData.equipments, targetIDVal, newIDVal);
-                    }
-
-            return gameInfo;
-        }
-
-        private static List<CargoItem> RemoveReplaceFromShipCargo(bool isRemoveOp, List<CargoItem> cargo, int targetIDVal, int newIDVal)
+        internal static List<InstalledEquipment> RemoveReplaceFromShipEquipment(bool isRemoveOp, List<InstalledEquipment> equipments, int targetID, int newID)
         {
             if (isRemoveOp)
-                remRepOpFoundEquipment = cargo.RemoveAll(ci => ci.itemType == (int)SVUtil.GlobalItemType.equipment && ci.itemID == targetIDVal) > 0 || remRepOpFoundEquipment;
+                remRepOpFoundEquipment = equipments.RemoveAll(ie => ie.equipmentID == targetID) > 0 || remRepOpFoundEquipment;
             else
-                cargo.ForEach(ci => { if (ci.itemType == (int)SVUtil.GlobalItemType.equipment && ci.itemID == targetIDVal) ci.itemID = newIDVal; });
-
-            return cargo;
-        }
-
-        private static List<InstalledEquipment> RemoveReplaceFromShipEquipment(bool isRemoveOp, List<InstalledEquipment> equipments, int targetIDVal, int newIDVal)
-        {
-            if (isRemoveOp)
-                remRepOpFoundEquipment = equipments.RemoveAll(ie => ie.equipmentID == targetIDVal) > 0 || remRepOpFoundEquipment;
-            else
-                equipments.ForEach(ie => { if (ie.equipmentID == targetIDVal) ie.equipmentID = newIDVal; });
+                equipments.ForEach(ie => { if (ie.equipmentID == targetID) ie.equipmentID = newID; });
 
             return equipments;
         }
-
-        private static GameDataInfo RemoveReplaceFromTowedObjects(bool isRemoveOp, GameDataInfo gameInfo, int targetIDVal, int newIDVal)
+    }
+    internal class SVItemUtil
+    {
+        internal static int GetNextID(List<Item> items)
         {
-            if (gameInfo.towedObjects != null && gameInfo.towedObjects.Count > 0)
-                if (isRemoveOp)
-                    remRepOpFoundEquipment = gameInfo.towedObjects.RemoveAll(to => to.driftingObject.itemType == (int)SVUtil.GlobalItemType.equipment && to.driftingObject.itemID == targetIDVal) > 0 || remRepOpFoundEquipment;
-                else
-                    gameInfo.towedObjects.ForEach(to => { if (to.driftingObject.itemType == (int)SVUtil.GlobalItemType.equipment && to.driftingObject.itemID == targetIDVal) to.driftingObject.itemID = newIDVal; });
+            int id = -1;
+            if (items == null || items.Count == 0)
+                return id;
 
-            return gameInfo;
+            foreach (Item item in items)
+                if (item.id > id)
+                    id = item.id;
+            id++;
+
+            return id;
         }
 
-        private static GameDataInfo RemoveReplaceFromMarkets(bool isRemoveOp, GameDataInfo gameInfo, int targetIDVal, int newIDVal)
+        internal static void ReplaceInDB(Item targetItem, Item newItem)
         {
-            // Stations list
-            foreach (Station s in gameInfo.stationList)
-                if (s.market != null && s.market.Count > 0)
-                    if (isRemoveOp)
-                        remRepOpFoundEquipment = s.market.RemoveAll(mi => mi.itemType == (int)SVUtil.GlobalItemType.equipment && mi.itemID == targetIDVal) > 0 || remRepOpFoundEquipment;
-                    else
-                        s.market.ForEach(mi => { if (mi.itemType == (int)SVUtil.GlobalItemType.equipment && mi.itemID == targetIDVal) mi.itemID = newIDVal; });
-
-            // Arena market
-            if (gameInfo.arenaData != null &&
-                gameInfo.arenaData.currMarket != null &&
-                gameInfo.arenaData.currMarket.Count > 0)
-                if (isRemoveOp)
-                    gameInfo.arenaData.currMarket.RemoveAll(mi => mi.itemType == (int)SVUtil.GlobalItemType.equipment && mi.itemID == targetIDVal);
-                else
-                    gameInfo.arenaData.currMarket.ForEach(mi => { if (mi.itemType == (int)SVUtil.GlobalItemType.equipment && mi.itemID == targetIDVal) mi.itemID = newIDVal; });
-
-            return gameInfo;
-        }
-
-        private static GameDataInfo RemoveReplaceFromSectors(bool isRemoveOp, GameDataInfo gameInfo, int targetIDVal, int newIDVal)
-        {
-            if (gameInfo.sectors != null && gameInfo.sectors.Count > 0)
-                foreach (TSector sec in gameInfo.sectors)
-                    if (sec.driftingObjects != null && sec.driftingObjects.Count > 0)
-                        if (isRemoveOp)
-                            remRepOpFoundEquipment = sec.driftingObjects.RemoveAll(dro => dro.itemType == (int)SVUtil.GlobalItemType.equipment && dro.itemID == targetIDVal) > 0 || remRepOpFoundEquipment;
-                        else
-                            sec.driftingObjects.ForEach(dro => { if (dro.itemType == (int)SVUtil.GlobalItemType.equipment && dro.itemID == targetIDVal) dro.itemID = newIDVal; });
-
-            if (gameInfo.lastSector != null)
-                if (isRemoveOp)
-                    remRepOpFoundEquipment = gameInfo.lastSector.driftingObjects.RemoveAll(dro => dro.itemType == (int)SVUtil.GlobalItemType.equipment && dro.itemID == targetIDVal) > 0 || remRepOpFoundEquipment;
-                else
-                    gameInfo.lastSector.driftingObjects.ForEach(dro => { if (dro.itemType == (int)SVUtil.GlobalItemType.equipment && dro.itemID == targetIDVal) dro.itemID = newIDVal; });
-
-            return gameInfo;
+            List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
+            if (items != null && items.Count > 0)
+                foreach (Item item in items)
+                    if (item.id == targetItem.id)
+                    {
+                        items[items.IndexOf(item)] = newItem;
+                        break;
+                    }
         }
     }
 }

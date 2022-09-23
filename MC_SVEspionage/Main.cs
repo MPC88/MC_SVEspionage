@@ -184,6 +184,9 @@ namespace MC_SVEspionage
 
             List<Equipment> equipments = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
             equipments = MCTargetScanner.Load(equipments);
+
+            List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
+            items = MCIntel.Load(items);
         }
     }
 

@@ -163,7 +163,7 @@ namespace MC_SVEspionage
                     this.targetStation.id != endTarget.id)
                     SideInfo.AddMsg("Scan failed: Target lost.");
                 else
-                    SideInfo.AddMsg("Scanned station: " + this.targetStation.stationName + " " + this.targetStation.id + " " + GameData.data.sectors[this.targetStation.sectorIndex].coords);
+                    ScanSuccessStation();
             }
             else if (targetShip != null)
             {
@@ -178,6 +178,19 @@ namespace MC_SVEspionage
 
             // Auto deactivate
             this.buffControl.activeEquipment.ActivateDeactivate(false, this.buffControl.owner.transform);
+        }
+
+        private void ScanSuccessStation()
+        {
+            string station = this.targetStation.stationName + " " + this.targetStation.id;
+            if (MCIntel.AddIntel(station) != null)
+            {
+                SideInfo.AddMsg("Scanned station: " + station + GameData.data.sectors[this.targetStation.sectorIndex].coords);
+                if (Main.data.intelInCargo.Count == MCIntel.maxIntels)
+                    SideInfo.AddMsg("Warning: Allocated scanner memory at capacity.");
+            }
+            else
+                SideInfo.AddMsg("Scan data discarded.  Allocated scanner memory at capacity.");
         }
 
         private void ScanSuccessShip()
