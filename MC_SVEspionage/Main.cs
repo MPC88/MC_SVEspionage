@@ -200,12 +200,12 @@ namespace MC_SVEspionage
 
         [HarmonyPatch(typeof(Inventory), nameof(Inventory.SelectItem))]
         [HarmonyPostfix]
-        private static void InventorySelectItem_Post(int itemIndex, ref CargoSystem ___cs, ref GameObject ___btnJettison, ref GameObject ___btnbtnScrapItem)
+        private static void InventorySelectItem_Post(int itemIndex, ref CargoSystem ___cs, ref GameObject ___btnJettison, ref GameObject ___btnScrapItem)
         {
             if (___cs.cargo[itemIndex].itemID >= MCIntel.startID &&
                 ___cs.cargo[itemIndex].itemID <= MCIntel.startID + MCIntel.maxIntels - 1)
             {
-                ___btnbtnScrapItem.SetActive(false);
+                ___btnScrapItem.SetActive(false);
                 ___btnJettison.SetActive(false);
             }
         }
