@@ -9,8 +9,13 @@ namespace MC_SVEspionage
 {
     internal class SVUtil
     {
-        internal enum LangTextSection { zero, one, two, three, EffectText }
+        // SV constants
+        internal enum LangTextSection { zero, one, two, three, effecttext }
         internal enum GlobalItemType { none, weapon, equipment, genericitem, ship }
+        internal enum Scene { intro, normal, arena }
+        internal readonly static string[] sceneNames = { "Intro", "Scene_1", "Arena" };
+
+        // Mod constants
         private const string backupFolder = "Backups/";
         private const string saveTempFilename = "Temp.dat";
 
@@ -252,18 +257,21 @@ namespace MC_SVEspionage
         internal static int AddToEffectsTextSection(string effectText)
         {
             LanguageTextStruct[] lang = AccessTools.StaticFieldRefAccess<Lang, LanguageTextStruct[]>("section");
-            lang[(int)SVUtil.LangTextSection.EffectText].text.Add(effectText);
-            return lang[(int)SVUtil.LangTextSection.EffectText].text.Count - 1;
+            lang[(int)SVUtil.LangTextSection.effecttext].text.Add(effectText);
+            return lang[(int)SVUtil.LangTextSection.effecttext].text.Count - 1;
         }
 
         internal static GameDataInfo AddToRandomStations(GameDataInfo gameDataInfo, Equipment equipment)
-        {            
+        {
+            System.Random rand = new System.Random();
+            
             foreach (Station s in gameDataInfo.stationList)
             {
                 if (s.level >= equipment.itemLevel &&
-                    UnityEngine.Random.Range(1, 100) <= equipment.sellChance)
+                    rand.Next(1, 100) <= equipment.sellChance &&
+                    s.market != null && s.market.Count > 0)
                 {
-                    MarketItem mi = new MarketItem((int)SVUtil.GlobalItemType.equipment, equipment.id, (int)ItemRarity.Common_1, UnityEngine.Random.Range(1, 5), null);
+                    MarketItem mi = new MarketItem((int)SVUtil.GlobalItemType.equipment, equipment.id, (int)ItemRarity.Common_1, rand.Next(1, 5), null);
                     s.market.Add(mi);
                 }
             }
@@ -327,6 +335,8 @@ namespace MC_SVEspionage
     }
     internal class SVItemUtil
     {
+        private static List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
+
         internal static int GetNextID(List<Item> items)
         {
             int id = -1;
@@ -341,14 +351,13 @@ namespace MC_SVEspionage
             return id;
         }
 
-        internal static void ReplaceInDB(Item targetItem, Item newItem)
+        internal static void ReplaceInDB(int targetItemID, Item newItem)
         {
-            List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
             if (items != null && items.Count > 0)
                 foreach (Item item in items)
-                    if (item.id == targetItem.id)
+                    if (item.id == targetItemID)
                     {
-                        items[items.IndexOf(item)] = newItem;
+                        items[targetItemID] = newItem;
                         break;
                     }
         }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace MC_SVEspionage
 {
@@ -13,9 +14,9 @@ namespace MC_SVEspionage
     public class Main : BaseUnityPlugin
     {
         // BepInEx Config
-        public const string pluginGuid = "mc.starvalor.targetscanner";
-        public const string pluginName = "SV Target Scanner";
-        public const string pluginVersion = "0.0.2";
+        public const string pluginGuid = "mc.starvalor.espionage";
+        public const string pluginName = "SV Espionage";
+        public const string pluginVersion = "0.0.1";
 
         // Mod
         private const string modSaveFolder = "/MCSVSaveData/";  // /SaveData/ sub folder
@@ -25,6 +26,9 @@ namespace MC_SVEspionage
         private static ConfigEntry<bool> cfgUninstall;
         internal static PersistentData data;
         internal static bool patchedText = false;
+
+        // Debug
+        private static BepInEx.Logging.ManualLogSource log = BepInEx.Logging.Logger.CreateLogSource("MC_SVEspionage");
 
         public void Awake()
         {
@@ -102,23 +106,23 @@ namespace MC_SVEspionage
                 File.Delete(tempPath);
 
             BinaryFormatter binaryFormatter = new BinaryFormatter();
-            FileStream fileStream = null;
-            fileStream = File.Create(tempPath);
+            FileStream fileStream = File.Create(tempPath);
             binaryFormatter.Serialize(fileStream, data);
             fileStream.Close();
 
             File.Copy(tempPath, Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat", true);
+            File.Delete(tempPath);
         }
 
         private static void LoadData(string saveIndex)
         {
-            string associatedData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
+            string modData = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + saveIndex + ".dat";
             try
             {
-                if (File.Exists(associatedData))
+                if (File.Exists(modData))
                 {
                     BinaryFormatter binaryFormatter = new BinaryFormatter();
-                    FileStream fileStream = File.Open(associatedData, FileMode.Open);
+                    FileStream fileStream = File.Open(modData, FileMode.Open);
                     PersistentData loadData = (PersistentData)binaryFormatter.Deserialize(fileStream);
                     fileStream.Close();
 
@@ -147,15 +151,17 @@ namespace MC_SVEspionage
         [HarmonyPrefix]
         private static void ActivateDeactivate_Pre(ActiveEquipment __instance)
         {
-            if (__instance.equipment.id == data.scannerEquipID)
-                __instance = MCTargetScanner.ActivateDeactivate_Pre(__instance);
+            if (GameManager.instance != null && GameManager.instance.inGame &&
+                __instance.equipment.id == data.scannerEquipID)
+                    __instance = MCTargetScanner.ActivateDeactivate_Pre(__instance);
         }
 
         [HarmonyPatch(typeof(ActiveEquipment), "AddActivatedEquipment")]
         [HarmonyPrefix]
         private static bool ActiveEquipmentAdd_Pre(Equipment equipment, SpaceShip ss, KeyCode key, int rarity, int qnt, ref ActiveEquipment __result)
         {
-            if (equipment.id == data.scannerEquipID)
+            if (GameManager.instance != null && GameManager.instance.inGame && 
+                equipment.id == data.scannerEquipID)
             {
                 __result = MCTargetScanner.ActiveEquipmentAdd_Pre(equipment, ss, key, rarity, qnt);
                 return false;
@@ -171,22 +177,46 @@ namespace MC_SVEspionage
             SaveGame();
         }
 
-        [HarmonyPatch(typeof(GameData), nameof(GameData.LoadGame))]
+        [HarmonyPatch(typeof(SceneManager), nameof(SceneManager.LoadScene), new Type[] { typeof(string) })]
         [HarmonyPostfix]
-        private static void GameDataLoadGame_Post()
+        private static void GameDataLoadScene_Post(string sceneName)
         {
-            LoadData(GameData.gameFileIndex.ToString("00"));
-            if (data == null)
+            if (sceneName.Equals(SVUtil.sceneNames[(int)SVUtil.Scene.normal]))
             {
-                SideInfo.AddMsg("<color=red>Espionage mod load failed.</color>");
-                return;
+                LoadData(GameData.gameFileIndex.ToString("00"));
+                if (data == null)
+                {
+                    SideInfo.AddMsg("<color=red>Espionage mod load failed.</color>");
+                    return;
+                }
+
+                List<Equipment> equipments = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
+                equipments = MCTargetScanner.Load(equipments);
+
+                List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
+                items = MCIntel.Load(items);
             }
+        }
 
-            List<Equipment> equipments = AccessTools.StaticFieldRefAccess<EquipmentDB, List<Equipment>>("equipments");
-            equipments = MCTargetScanner.Load(equipments);
+        [HarmonyPatch(typeof(Inventory), nameof(Inventory.SelectItem))]
+        [HarmonyPostfix]
+        private static void InventorySelectItem_Post(int itemIndex, ref CargoSystem ___cs, ref GameObject ___btnJettison, ref GameObject ___btnbtnScrapItem)
+        {
+            if (___cs.cargo[itemIndex].itemID >= MCIntel.startID &&
+                ___cs.cargo[itemIndex].itemID <= MCIntel.startID + MCIntel.maxIntels - 1)
+            {
+                ___btnbtnScrapItem.SetActive(false);
+                ___btnJettison.SetActive(false);
+            }
+        }
 
-            List<Item> items = AccessTools.StaticFieldRefAccess<ItemDB, List<Item>>("items");
-            items = MCIntel.Load(items);
+        [HarmonyPatch(typeof(CargoSystem), nameof(CargoSystem.RemoveItem))]
+        [HarmonyPrefix]
+        private static void CargoSystemRemoveItem_Pre(int index, ref List<CargoItem> ___cargo)
+        {
+            if (___cargo[index].itemID >= MCIntel.startID &&
+                ___cargo[index].itemID <= MCIntel.startID + MCIntel.maxIntels - 1)
+                MCIntel.RemoveIntel(___cargo[index].itemID);
         }
     }
 
@@ -194,12 +224,37 @@ namespace MC_SVEspionage
     internal class PersistentData
     {
         internal int scannerEquipID;
-        internal List<Item> intelInCargo;
+        internal List<IntelCargo> intelInCargo;
 
         internal PersistentData()
         {
             scannerEquipID = -1;
-            intelInCargo = new List<Item>();
+            intelInCargo = new List<IntelCargo>();
+        }
+
+        internal bool CargoContainsIntelForStation(string stationName)
+        {
+            if (intelInCargo.Count == 0)
+                return false;
+
+            foreach(IntelCargo intel in intelInCargo)
+                if(intel.stationName.Equals(stationName))
+                    return true;
+
+            return false;
+        }
+
+        [Serializable]
+        internal class IntelCargo
+        {
+            internal int id;
+            internal string stationName;
+
+            public IntelCargo()
+            {
+                id = -1;
+                stationName = "";
+            }
         }
     }
 }

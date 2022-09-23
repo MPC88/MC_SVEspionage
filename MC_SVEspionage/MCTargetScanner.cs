@@ -1,5 +1,4 @@
-﻿using HarmonyLib;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace MC_SVEspionage
@@ -8,10 +7,18 @@ namespace MC_SVEspionage
     {
         private static GameObject buffGO = null;
         private const int basicScannerEquipID = 20; // For sprite
+        private const string equipmentName = "Target Scanner";
         private const string effectText = "<b>Systems Infiltration: <par1></color></b>"; // Only required if effect does not already exist.  For existing type IDs, check language file.                
         
         internal static List<Equipment> Load(List<Equipment> equipments)
         {
+            // Check if equipment already exists
+            Equipment tryGetEquipment = EquipmentDB.GetEquipment(Main.data.scannerEquipID);
+            if (tryGetEquipment != null &&
+                tryGetEquipment.equipName.Equals(equipmentName))
+                return equipments;
+
+            // Add new
             int id = SVEquipmentUtil.GetNextID(equipments);
             int effectTextIndex = SVEquipmentUtil.AddToEffectsTextSection(effectText);
 
@@ -22,7 +29,8 @@ namespace MC_SVEspionage
 
                 if (Main.data.scannerEquipID != id)
                     GameData.data = SVEquipmentUtil.ReplaceEquipment(GameData.data, Main.data.scannerEquipID, id);
-                else
+                
+                if (Main.data.scannerEquipID == -1)
                     GameData.data = SVEquipmentUtil.AddToRandomStations(GameData.data, targetScanner);
             }
 
@@ -34,9 +42,9 @@ namespace MC_SVEspionage
         private static Equipment CreateEquipment(int id, int effectTextIndex)
         {
             Equipment targetScanner = ScriptableObject.CreateInstance<Equipment>();
-            targetScanner.name = id + ".TargetScanner";
+            targetScanner.name = id + "." + equipmentName;
             targetScanner.id = id;
-            targetScanner.refName = "Target Scanner";
+            targetScanner.refName = equipmentName;
             targetScanner.minShipClass = ShipClassLevel.Shuttle;
             targetScanner.activated = true;
             targetScanner.enableChangeKey = true;
@@ -61,7 +69,7 @@ namespace MC_SVEspionage
             targetScanner.defaultKey = KeyCode.Alpha1;
             targetScanner.requiredItemID = -1;
             targetScanner.requiredQnt = 0;
-            targetScanner.equipName = "Target Scanner";
+            targetScanner.equipName = equipmentName;
             targetScanner.description = "Ship: Reveal target information.\nStation: Hack station systems to obtain intel.";
             targetScanner.craftingMaterials = null;
             if (buffGO == null)
@@ -183,14 +191,7 @@ namespace MC_SVEspionage
         private void ScanSuccessStation()
         {
             string station = this.targetStation.stationName + " " + this.targetStation.id;
-            if (MCIntel.AddIntel(station) != null)
-            {
-                SideInfo.AddMsg("Scanned station: " + station + GameData.data.sectors[this.targetStation.sectorIndex].coords);
-                if (Main.data.intelInCargo.Count == MCIntel.maxIntels)
-                    SideInfo.AddMsg("Warning: Allocated scanner memory at capacity.");
-            }
-            else
-                SideInfo.AddMsg("Scan data discarded.  Allocated scanner memory at capacity.");
+            MCIntel.AddIntel(station, this.targetSS);
         }
 
         private void ScanSuccessShip()
