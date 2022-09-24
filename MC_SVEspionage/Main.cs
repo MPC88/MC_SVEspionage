@@ -66,8 +66,17 @@ namespace MC_SVEspionage
                     string selectedSaveIndex = cfgSaveFile.GetSerializedValue();
                     selectedSaveIndex = selectedSaveIndex.Remove(selectedSaveIndex.IndexOf('.')).Remove(0, selectedSaveIndex.IndexOf('_') + 1);
                     string saveFilePath = Application.dataPath + GameData.saveFolderName + "/" + cfgSaveFile.GetSerializedValue();
-                    try
+                    string modDataPath = Application.dataPath + GameData.saveFolderName + modSaveFolder + modSaveFilePrefix + GameData.gameFileIndex.ToString("00") + ".dat";
+
+                    if (!File.Exists(modDataPath))
                     {
+                        cfgStatus.Value = "No mod data file assoicated with this save.  No uninstall performed.";
+                        cfgUninstall.Value = false;
+                        return;
+                    }
+
+                    try
+                    {   
                         LoadData(selectedSaveIndex);
                         if (data == null)
                             throw new Exception();
@@ -86,6 +95,7 @@ namespace MC_SVEspionage
                     catch
                     {
                         cfgStatus.Value = "Loading or uninstall operation failed.  No files have been modifed.";
+                        cfgUninstall.Value = false;
                     }
 
                     try
@@ -96,11 +106,22 @@ namespace MC_SVEspionage
                     catch
                     {
                         cfgStatus.Value = "Saving failed.  Backup: " + SVUtil.lastBackupPath;
+                        cfgUninstall.Value = false;
+                    }
+
+                    try
+                    {
+                        File.Delete(modDataPath);
+                    }
+                    catch
+                    {
+                        cfgStatus.Value = "Uninstalled from save, but failed to delete mod data file.";
+                        cfgUninstall.Value = false;
                     }
 
                     cfgStatus.Value = "Complete.  Save backup: " + SVUtil.lastBackupPath;
-                }                                
-                cfgUninstall.Value = false;
+                    cfgUninstall.Value = false;
+                }                                                
             }
         }
 

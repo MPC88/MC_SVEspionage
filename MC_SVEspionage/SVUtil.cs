@@ -83,7 +83,7 @@ namespace MC_SVEspionage
 
             lastBackupPath = "None.  No files have been modifed.";
             if (!File.Exists(saveFilePath))
-                throw new Exception();
+                throw new Exception("Save file path does not exist.");
 
             lastBackupPath = CreateBackup(saveFilePath, modSaveFolder);
 
@@ -109,11 +109,6 @@ namespace MC_SVEspionage
 
         private static string CreateBackup(string saveFilePath, string modSaveFolder)
         {
-            if (opRunning)
-                return null;
-
-            opRunning = true;
-
             string backupPath = Path.GetDirectoryName(saveFilePath) + modSaveFolder + backupFolder + Path.GetFileNameWithoutExtension(saveFilePath) + "_" + DateTime.Now.ToString("yyyy-MM-dd--HH-mm") + ".dat";
             if (File.Exists(backupPath))
                 throw new Exception();
@@ -123,7 +118,6 @@ namespace MC_SVEspionage
 
             File.Copy(saveFilePath, backupPath, false);
 
-            opRunning = false;
             return backupPath;
         }
 
