@@ -69,7 +69,19 @@ namespace MC_SVEspionage
                     try
                     {
                         LoadData(selectedSaveIndex);
-                        gdi = SVEquipmentUtil.RemoveEquipment(SVUtil.LoadGame(saveFilePath), data.scannerEquipID);
+                        if (data == null)
+                            throw new Exception();
+
+                        List<SVUtil.RemoveReplaceEntry> items = new List<SVUtil.RemoveReplaceEntry> {
+                            new SVUtil.RemoveReplaceEntry {
+                                targetID = data.scannerEquipID,
+                                type = SVUtil.GlobalItemType.equipment
+                            }
+                        };
+                        for (int i = 0; i < data.intelInCargo.Count; i++)
+                            items.Add(new SVUtil.RemoveReplaceEntry { targetID = data.intelInCargo[i].id, type = SVUtil.GlobalItemType.genericitem });
+
+                        gdi = SVUtil.RemoveObjectsFromGameData(SVUtil.LoadGame(saveFilePath), items);
                     }
                     catch
                     {
@@ -209,7 +221,8 @@ namespace MC_SVEspionage
         [HarmonyPostfix]
         private static void InventorySelectItem_Post(int itemIndex, ref CargoSystem ___cs, ref GameObject ___btnJettison, ref GameObject ___btnScrapItem, ref int ___cargoMode)
         {
-            if (___cargoMode < 2 && ___cs.cargo[itemIndex].itemID >= MCIntel.startID &&
+            if (itemIndex > 0 && itemIndex < ___cs.cargo.Count &&
+                ___cargoMode < 2 && ___cs.cargo[itemIndex].itemID >= MCIntel.startID &&
                 ___cs.cargo[itemIndex].itemID <= MCIntel.startID + MCIntel.maxIntels - 1)
             {
                 ___btnScrapItem.SetActive(false);

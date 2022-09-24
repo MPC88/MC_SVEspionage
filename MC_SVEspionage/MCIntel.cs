@@ -31,16 +31,16 @@ namespace MC_SVEspionage
 
 			if (Main.data.intelInCargo.Count > 0)
 			{
-				Dictionary<int, int> ids = new Dictionary<int, int>();
+				List<SVUtil.RemoveReplaceEntry> replaceIntels = new List<SVUtil.RemoveReplaceEntry>();
 				for (int i = 0; i < Main.data.intelInCargo.Count; i++)
 				{
 					intels[i].description = description.Replace(stationNamePlaceholder, Main.data.intelInCargo[i].stationName);
-					ids.Add(Main.data.intelInCargo[i].id, intels[i].id);
+					replaceIntels.Add(new SVUtil.RemoveReplaceEntry { targetID = Main.data.intelInCargo[i].id, newID = intels[i].id, type = SVUtil.GlobalItemType.genericitem });
                     Main.data.intelInCargo[i].id = intels[i].id;
 				}
 
-				if (ids.Count > 0)
-					GameData.data.spaceShipData.cargo = SVUtil.RemoveReplaceFromShipCargo(false, GameData.data.spaceShipData.cargo, ids, SVUtil.GlobalItemType.genericitem);
+				if (replaceIntels.Count > 0)
+					GameData.data = SVUtil.ReplaceObjectsInGameData(GameData.data, replaceIntels);
 			}
 
 			if (replacing)
@@ -78,6 +78,10 @@ namespace MC_SVEspionage
 				intel.description = description.Replace(stationNamePlaceholder, stationName);				
 				SVItemUtil.ReplaceInDB(startID + intelIndex, intel);				
 				cs.StoreItem((int)SVUtil.GlobalItemType.genericitem, intel.id, intel.rarity, 1, 0f, -1, -1, -1);
+				Main.data.intelInCargo.Add(new PersistentData.IntelCargo { id = intel.id, stationName = stationName });
+				SideInfo.AddMsg("Scan data for station " + stationName + " stored.");
+				if (Main.data.intelInCargo.Count == maxIntels)
+					SideInfo.AddMsg("Warning: Scanner memory at capacity.");
 			}
 		}
 
