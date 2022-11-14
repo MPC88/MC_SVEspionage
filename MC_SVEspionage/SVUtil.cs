@@ -12,6 +12,8 @@ namespace MC_SVEspionage
         // SV constants
         internal enum LangTextSection { basicandui, weapons, equipment, items, equipmenteffects, dynamicinterface, messagestexts, factions, skills, weaponcomponents }
         internal enum GlobalItemType { none, weapon, equipment, genericitem, ship }
+        internal enum AIBehaviourRole { dps, healer, miner }
+        internal enum GameMode { standard, arena, casualstreamer }
 
         // Utility constants
         private const string backupFolder = "Backups/";

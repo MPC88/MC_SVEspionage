@@ -4,6 +4,7 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -29,6 +30,7 @@ namespace MC_SVEspionage
 
         // Debug
         private static BepInEx.Logging.ManualLogSource log = BepInEx.Logging.Logger.CreateLogSource("MC_SVEspionage");
+
 
         public void Awake()
         {
